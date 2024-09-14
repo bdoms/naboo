@@ -1,0 +1,45 @@
+line-length = 120
+
+[lint]
+flake8-quotes = {inline-quotes='single'}
+
+ignore = ['ISC003', 'PLR0912', 'PLR0913', 'PLR0915']
+
+# https://beta.ruff.rs/docs/rules/
+select = [
+    'A',
+    # 'ANN', # FUTURE: this is for annotations
+    'ARG',
+    'ASYNC',
+    'B',
+    'C4',
+    'E',
+    'EXE',
+    'F',
+    'FLY',
+    'INP',
+    'INT',
+    'ISC',
+    'N',
+    'PERF',
+    'PGH',
+    'PIE',
+    'PL',
+    'PT',
+    'Q',
+    'RET',
+    'RSE',
+    'RUF',
+    'S',
+    'SIM',
+    'SLF',
+    'T2',
+    'T10',
+    'UP',
+    'W',
+    'YTT'
+]
+
+[lint.per-file-ignores]
+'naboo/*' = ['N802']
+'tests/*' = ['PT011', 'S101']
