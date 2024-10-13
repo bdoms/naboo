@@ -1,5 +1,6 @@
 import asyncio
 import base64
+from contextlib import asynccontextmanager
 from datetime import datetime, date, time
 import hashlib
 import inspect
@@ -37,9 +38,13 @@ class Database:
         return await cls.pool.acquire()
 
     @classmethod
+    @asynccontextmanager
     async def connection(cls):
-        async with cls.pool.acquire() as conn:
+        conn = await cls.pool.acquire()
+        try:
             yield conn
+        finally:
+            await conn.close()
 
     @classmethod
     async def dropTables(cls, conn):
