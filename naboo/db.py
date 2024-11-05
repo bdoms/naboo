@@ -116,6 +116,46 @@ class Field:
         return col, constraint
 
 
+class ArrayField(Field):
+
+    db_type = 'array'
+
+    # note that for "timestamp" the "without time zone" is implied
+    SUPPORTED_TYPES = { # NOQA: RUF012
+        'boolean': bool,
+        'date': date,
+        'float': float,
+        'integer': int,
+        'text': str,
+        'time': time,
+        'timestamp': datetime,
+        'uuid': UUID
+        # 'varchar' # FUTURE: this is going to take extra work to support any value for max length
+    }
+
+    def __init__(self, array_type, default=None, **kwargs) -> None:
+        sub_type = self.SUPPORTED_TYPES.get(array_type)
+        if not sub_type:
+            raise TypeError('Invalid array type: ' + array_type)
+
+        if default is not None:
+            if not isinstance(default, list):
+                raise TypeError('Invalid default type: ' + str(type(default)))
+
+            for item in default:
+                if item is not None and not isinstance(item, sub_type):
+                    raise TypeError('Invalid default item type: ' + str(type(item)))
+
+        self.array_type = array_type
+
+        super().__init__(default=default, **kwargs)
+
+
+    @property
+    def field_type(self):
+        return self.array_type + '[]'
+
+
 class BooleanField(Field):
 
     db_type = 'boolean'
@@ -293,10 +333,6 @@ class TextField(Field):
             default = "'" + default + "'"
 
         super().__init__(default=default, **kwargs)
-
-    @property
-    def field_type(self):
-        return self.db_type
 
 
 class TimeField(Field):

@@ -6,8 +6,8 @@ from uuid import UUID
 import asyncpg
 import pytest
 
-from naboo import (Database, Field, Query, Model, BooleanField, CharField, DateField, DateTimeField,
-    FloatField, ForeignKeyField, IntField, TextField, TimeField, UUIDField)
+from naboo import (Database, Field, Query, Model, ArrayField, BooleanField, CharField,
+    DateField, DateTimeField, FloatField, ForeignKeyField, IntField, TextField, TimeField, UUIDField)
 from naboo.db import MAX_FIELD_LENGTH
 
 
@@ -85,6 +85,27 @@ def test_field_create():
 
     col, constraint = field.create('testtable', 'foo')
     assert col == f'"foo" {field.db_type} DEFAULT test default UNIQUE'
+    assert constraint is None
+
+
+def test_array_field():
+
+    with pytest.raises(TypeError):
+        ArrayField('foo', default=None)
+
+    with pytest.raises(TypeError):
+        ArrayField('text', default='foo')
+
+    with pytest.raises(TypeError):
+        ArrayField('text', default=[1])
+
+    field = ArrayField('text', default=['abc'])
+
+    with pytest.raises(TypeError):
+        field.create('testtable', 'id')
+
+    col, constraint = field.create('testtable', 'foo')
+    assert col == f'"foo" {field.field_type} DEFAULT [\'abc\'] NOT NULL'
     assert constraint is None
 
 
