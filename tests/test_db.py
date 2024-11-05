@@ -94,12 +94,12 @@ def test_array_field():
         ArrayField('foo', default=None)
 
     with pytest.raises(TypeError):
-        ArrayField('text', default='foo')
+        ArrayField(str, default='foo')
 
     with pytest.raises(TypeError):
-        ArrayField('text', default=[1])
+        ArrayField(str, default=[1])
 
-    field = ArrayField('text', default=['abc'])
+    field = ArrayField(str, default=['abc'])
 
     with pytest.raises(TypeError):
         field.create('testtable', 'id')

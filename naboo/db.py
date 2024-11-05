@@ -122,20 +122,20 @@ class ArrayField(Field):
 
     # note that for "timestamp" the "without time zone" is implied
     SUPPORTED_TYPES = { # NOQA: RUF012
-        'boolean': bool,
-        'date': date,
-        'float': float,
-        'integer': int,
-        'text': str,
-        'time': time,
-        'timestamp': datetime,
-        'uuid': UUID
+        bool: 'boolean',
+        date: 'date',
+        float: 'float',
+        int: 'integer',
+        str: 'text',
+        time: 'time',
+        datetime: 'timestamp',
+        UUID: 'uuid'
         # 'varchar' # FUTURE: this is going to take extra work to support any value for max length
     }
 
     def __init__(self, array_type, default=None, **kwargs) -> None:
-        sub_type = self.SUPPORTED_TYPES.get(array_type)
-        if not sub_type:
+        type_name = self.SUPPORTED_TYPES.get(array_type)
+        if not type_name:
             raise TypeError('Invalid array type: ' + array_type)
 
         if default is not None:
@@ -143,10 +143,10 @@ class ArrayField(Field):
                 raise TypeError('Invalid default type: ' + str(type(default)))
 
             for item in default:
-                if item is not None and not isinstance(item, sub_type):
+                if item is not None and not isinstance(item, array_type):
                     raise TypeError('Invalid default item type: ' + str(type(item)))
 
-        self.array_type = array_type
+        self.array_type = type_name
 
         super().__init__(default=default, **kwargs)
 
