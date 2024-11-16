@@ -325,7 +325,7 @@ class TestQuery:
         alias = 'testalias'
         q = Query(conn, QueryTest, alias=alias)
 
-        sql = f'SELECT * FROM public."querytest" AS "{alias}"' # NOQA: S608
+        sql = f'SELECT * FROM public."query_test" AS "{alias}"' # NOQA: S608
         assert q.sql == sql
 
         # can't close a group before you start

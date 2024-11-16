@@ -651,7 +651,9 @@ class Model:
     @classmethod
     @property
     def meta_table(cls):
-        return hasattr(cls.Meta, 'table') and cls.Meta.table or cls.__name__.lower()
+        # this fallback auto converts from TitleCase to under_scores based on the class name
+        return hasattr(cls.Meta, 'table') and cls.Meta.table \
+            or ''.join(['_' + c.lower() if c.isupper() else c for c in cls.__name__]).lstrip('_')
 
     @classmethod
     @property

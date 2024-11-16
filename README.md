@@ -19,6 +19,8 @@ Then setup the test database and permissions (or modify the environment variable
 CREATE DATABASE naboo_test;
 CREATE USER naboo_test_user WITH PASSWORD 'naboo_test_password';
 GRANT ALL PRIVILEGES ON DATABASE naboo_test TO naboo_test_user;
+\c naboo_test;
+ALTER SCHEMA public OWNER TO naboo_test_user;
 ```
 
 Then to run tests:
