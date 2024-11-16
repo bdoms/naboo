@@ -89,17 +89,17 @@ class Field:
     def create(self, table_name, col_name):
         # NOTE: dot/period is allowed for tables so that schemas can be included
         if not self.validateName(table_name, allowed='._') or not self.validateName(col_name):
-            raise ValueError('Invalid table or column name: ' + table_name + ' ' + col_name)
+            raise ValueError(f'Invalid table or column name: {table_name} {col_name}')
 
-        col = '"' + col_name + '" ' + self.field_type
+        col = f'"{col_name}" {self.field_type}'
 
         if self.default is not None:
             # wrapping default in a string means that it should also work here for bools, ints, etc.
-            col += ' DEFAULT ' + str(self.default)
+            col += f' DEFAULT {self.default}'
 
         if col_name == 'id':
             if self.field_type not in ('uuid', 'int'):
-                raise TypeError('Field type is not allowed for primary keys: ' + self.field_type)
+                raise TypeError(f'Field type is not allowed for primary keys: {self.field_type}')
 
             if isinstance(self, ForeignKeyField):
                 raise TypeError('Foreign keys are not allowed as primary keys')
@@ -136,15 +136,15 @@ class ArrayField(Field):
     def __init__(self, array_type, default=None, **kwargs) -> None:
         type_name = self.SUPPORTED_TYPES.get(array_type)
         if not type_name:
-            raise TypeError('Invalid array type: ' + array_type)
+            raise TypeError(f'Invalid array type: {array_type}')
 
         if default is not None:
             if not isinstance(default, list):
-                raise TypeError('Invalid default type: ' + str(type(default)))
+                raise TypeError(f'Invalid default type: {type(default)}')
 
             for item in default:
                 if item is not None and not isinstance(item, array_type):
-                    raise TypeError('Invalid default item type: ' + str(type(item)))
+                    raise TypeError(f'Invalid default item type: {type(item)}')
 
         self.array_type = type_name
 
@@ -153,7 +153,7 @@ class ArrayField(Field):
 
     @property
     def field_type(self):
-        return self.array_type + '[]'
+        return f'{self.array_type}[]'
 
 
 class BooleanField(Field):
@@ -162,7 +162,7 @@ class BooleanField(Field):
 
     def __init__(self, default=None, **kwargs) -> None:
         if default is not None and not isinstance(default, bool):
-            raise TypeError('Invalid default type: ' + str(type(default)))
+            raise TypeError(f'Invalid default type: {type(default)}')
 
         super().__init__(default=default, **kwargs)
 
@@ -175,13 +175,13 @@ class CharField(Field):
         # default needs to wrapped in single quotes
         if default is not None:
             if not isinstance(default, str):
-                raise TypeError('Invalid default type: ' + str(type(default)))
+                raise TypeError(f'Invalid default type: {type(default)}')
 
             # NOTE: in theory we could escape these below, but not sure it's safe
             # probably need some other method to ensure there aren't any crazy tricks here
             # after way too much investigation it's unclear if there is a good method to allow this
             if "'" in default or '\\' in default:
-                raise ValueError('Single quotes and backslashes are not allowed in default values: ' + default)
+                raise ValueError(f'Single quotes and backslashes are not allowed in default values: {default}')
                 # escape bad characters
                 # default = default.replace("'", "''").replace('\', '\\')
 
@@ -193,7 +193,7 @@ class CharField(Field):
 
     @property
     def field_type(self):
-        return self.db_type + '(' + str(self.max_lenth) + ')'
+        return f'{self.db_type}({self.max_lenth})'
 
 
 class DateField(Field):
@@ -205,7 +205,7 @@ class DateField(Field):
             if isinstance(default, date):
                 default = default.strftime('%Y-%m-%d')
             else:
-                raise TypeError('Invalid default type: ' + str(type(default)))
+                raise TypeError(f'Invalid default type: {type(default)}')
 
         super().__init__(default=default, **kwargs)
 
@@ -225,7 +225,7 @@ class DateTimeField(Field):
                 # NOTE that this assumes the time is UTC already
                 default = default.strftime('%Y-%m-%d %H:%M:%S.%f')
             else:
-                raise TypeError('Invalid default type: ' + str(type(default)))
+                raise TypeError(f'Invalid default type: {type(default)}')
 
         super().__init__(default=default, **kwargs)
 
@@ -234,7 +234,7 @@ class DateTimeField(Field):
 
     def constraint(self, table_name, col_name):
         if not self.validateName(table_name, allowed='._') or not self.validateName(col_name):
-            raise ValueError('Invalid table or column name: ' + table_name + ' ' + col_name)
+            raise ValueError(f'Invalid table or column name: {table_name} {col_name}')
 
         # create a function and trigger for this column - possible to do with one function but very ugly, see
         # https://dba.stackexchange.com/questions/127787/trigger-function-taking-column-names-as-parameters-to-modify-the-row
@@ -266,7 +266,7 @@ class FloatField(Field):
 
     def __init__(self, default=None, **kwargs) -> None:
         if default is not None and not isinstance(default, float):
-            raise TypeError('Invalid default type: ' + str(type(default)))
+            raise TypeError(f'Invalid default type: {type(default)}')
 
         super().__init__(default=default, **kwargs)
 
@@ -276,10 +276,10 @@ class ForeignKeyField(Field):
     def __init__(self, model_class, default=None, **kwargs) -> None:
         if model_class.id.db_type == 'uuid':
             if default is not None and not isinstance(default, UUID):
-                raise TypeError('Invalid default type: ' + str(type(default)))
+                raise TypeError(f'Invalid default type: {type(default)}')
         elif model_class.id.db_type == 'int':
             if default is not None and not isinstance(default, int):
-                raise TypeError('Invalid default type: ' + str(type(default)))
+                raise TypeError(f'Invalid default type: {type(default)}')
         else:
             # FUTURE: in theory strings/charvars could work here too
             raise NotImplementedError
@@ -295,7 +295,7 @@ class ForeignKeyField(Field):
             raise ValueError('Invalid column name: ' + col_name)
 
         # FUTURE: be able to disable "ON DELETE CASCADE"
-        name = Database.labelName(col_name + '_fkey')
+        name = Database.labelName(f'{col_name}_fkey')
         return f'CONSTRAINT "{name}" FOREIGN KEY("{col_name}") REFERENCES {self.model_class.schema_table}(id) ' \
             + 'ON DELETE CASCADE'
 
@@ -306,7 +306,7 @@ class IntField(Field):
 
     def __init__(self, default=None, **kwargs) -> None:
         if default is not None and not isinstance(default, int):
-            raise TypeError('Invalid default type: ' + str(type(default)))
+            raise TypeError(f'Invalid default type: {type(default)}')
 
         super().__init__(default=default, **kwargs)
 
@@ -319,13 +319,13 @@ class TextField(Field):
         # default needs to wrapped in single quotes
         if default is not None:
             if not isinstance(default, str):
-                raise TypeError('Invalid default type: ' + str(type(default)))
+                raise TypeError(f'Invalid default type: {type(default)}')
 
             # NOTE: in theory we could escape these below, but not sure it's safe
             # probably need some other method to ensure there aren't any crazy tricks here
             # after way too much investigation it's unclear if there is a good method to allow this
             if "'" in default or '\\' in default:
-                raise ValueError('Single quotes and backslashes are not allowed in default values: ' + default)
+                raise ValueError(f'Single quotes and backslashes are not allowed in default values: {default}')
                 # escape bad characters
                 # default = default.replace("'", "''").replace('\', '\\')
 
@@ -345,7 +345,7 @@ class TimeField(Field):
                 # NOTE that this assumes the time is UTC already
                 default = default.strftime('%H:%M:%S.%f')
             else:
-                raise TypeError('Invalid default type: ' + str(type(default)))
+                raise TypeError(f'Invalid default type: {type(default)}')
 
         super().__init__(default=default, **kwargs)
 
@@ -356,7 +356,7 @@ class UUIDField(Field):
 
     def __init__(self, default='gen_random_uuid()', **kwargs) -> None:
         if default is not None and default != 'gen_random_uuid()' and not isinstance(default, UUID):
-            raise TypeError('Invalid default type: ' + str(type(default)))
+            raise TypeError(f'Invalid default type: {type(default)}')
 
         super().__init__(default=default, **kwargs)
 
@@ -393,7 +393,7 @@ class Query:
             for column in columns:
                 self._check_col(column)
 
-            self._sql += ', '.join(['"' + column + '"' for column in columns])
+            self._sql += ', '.join([f'"{column}"' for column in columns])
         else:
             self._sql += '*'
 
@@ -451,27 +451,27 @@ class Query:
 
         if operator in Query.IS_OPERATORS:
             if col_value not in Query.IS_VALUES:
-                msg = 'Values for "' + operator + '" operator must be one of ' + str(Query.IS_VALUES)
-                msg += ', unknown value: ' + col_value
+                msg = f'Values for "{operator}" operator must be one of {Query.IS_VALUES}'
+                msg += f', unknown value: {col_value}'
                 raise ValueError(msg)
         elif operator not in Query.OPERATORS:
-            raise ValueError('Unsupported operator: ' + operator)
+            raise ValueError(f'Unsupported operator: {operator}')
 
         if logic and logic not in Query.LOGICAL:
-            raise ValueError('Unsupported logic: ' + logic)
+            raise ValueError(f'Unsupported logic: {logic}')
 
         if func and func not in Query.FUNCTIONS:
-            raise ValueError('Unsupported function: ' + func)
+            raise ValueError(f'Unsupported function: {func}')
 
         if ' WHERE ' in self._sql:
             if self._sql[-1] != '(':
                 self._sql += ' '
                 if logic:
-                    self._sql += logic + ' '
+                    self._sql += f'{logic} '
         else:
             self._sql += ' WHERE '
 
-        alias = self.alias and (self.alias + '"."') or ''
+        alias = self.alias and (f'{self.alias}"."') or ''
         column = f'"{alias}{col_name}"'
 
         if func:
@@ -508,7 +508,7 @@ class Query:
 
     def add_logic(self, logic):
         if logic not in Query.LOGICAL:
-            raise ValueError('Unsupported logic: ' + logic)
+            raise ValueError(f'Unsupported logic: {logic}')
 
         self._sql += ' ' + logic
 
@@ -527,7 +527,7 @@ class Query:
             # NOTE: actually this falls apart with double digits because replace('$1') will catch '$10'
             # need some kind of solution for that (running the loop backwards?)
             if len(subquery.args) > MAX_SUBQUERY_ARGS:
-                raise RuntimeError('Too many args in subquery: ' + str(len(subquery.args)))
+                raise RuntimeError(f'Too many args in subquery: {len(subquery.args)}')
 
             # to avoid conflicts where we do something like replace $1 with $2 and then accidentally replace
             # the replaced $2 with something else instead of the actual placeholder $2 later
@@ -542,7 +542,7 @@ class Query:
                 position += 1
 
         # WARNING - the subquery can be anything right now - do not expose to end users like this!
-        self._sql += ' EXISTS (' + sql + ')'
+        self._sql += f' EXISTS ({sql})'
 
         return self
 
@@ -551,7 +551,7 @@ class Query:
         self._check_col(col_name)
 
         if direction not in Query.DIRECTIONS:
-            raise ValueError('Unsupported direction: ' + direction)
+            raise ValueError(f'Unsupported direction: {direction}')
 
         if ' ORDER BY ' in self.order_by_sql:
             self.order_by_sql += ','
@@ -568,13 +568,13 @@ class Query:
     def limit(self, n: int):
 
         if not isinstance(n, int):
-            raise TypeError('Limit must be an integer: ' + str(n))
+            raise TypeError(f'Limit must be an integer: {n}')
 
         if n < 1:
-            raise ValueError('Limit must be greater than zero: ' + str(n))
+            raise ValueError(f'Limit must be greater than zero: {n}')
 
         if n > MAX_LIMIT:
-            raise ValueError('Limit must be 10000 or less: ' + str(n))
+            raise ValueError(f'Limit must be 10000 or less: {n}')
 
         if ' LIMIT ' in self.limit_sql:
             raise RuntimeError('Multiple calls to limit on the same query are not allowed')
@@ -586,10 +586,10 @@ class Query:
     def offset(self, n: int):
 
         if not isinstance(n, int):
-            raise TypeError('Offset must be an integer: ' + str(n))
+            raise TypeError(f'Offset must be an integer: {n}')
 
         if n < 0:
-            raise ValueError('Offset must not be negative: ' + str(n))
+            raise ValueError(f'Offset must not be negative: {n}')
 
         if ' OFFSET ' in self.offset_sql:
             raise RuntimeError('Multiple calls to offset on the same query are not allowed')
@@ -720,7 +720,7 @@ class Model:
                     raise KeyError(f'Primary key field {name} is auto generated, do not specify')
 
                 # NOTE: letting the database exclusively worry about values, nulls, uniques, etc. for now
-                names.append('"' + name + '"')
+                names.append(f'"{name}"')
                 values.append(value)
             else:
                 raise KeyError(f'Unknown field {name}')
@@ -770,7 +770,7 @@ class Model:
                     raise KeyError(f'Primary key field {name} is auto generated, do not specify')
 
                 # NOTE: letting the database exclusively worry about values, nulls, uniques, etc. for now
-                names.append('"' + name + '"')
+                names.append(f'"{name}"')
                 values.append(value)
             else:
                 raise KeyError(f'Unknown field: {name}')
@@ -807,20 +807,20 @@ class Model:
 
         if operator in Query.IS_OPERATORS:
             if col_value not in Query.IS_VALUES:
-                msg = 'Values for "' + operator + '" operator must be one of ' + str(Query.IS_VALUES)
-                msg += ', unknown value: ' + col_value
+                msg = f'Values for "{operator}" operator must be one of {Query.IS_VALUES}'
+                msg += f', unknown value: {col_value}'
                 raise ValueError(msg)
         elif operator not in Query.OPERATORS:
-            raise ValueError('Unsupported operator: ' + operator)
+            raise ValueError(f'Unsupported operator: {operator}')
 
         if and_operator:
             if and_operator in Query.IS_OPERATORS:
                 if and_value not in Query.IS_VALUES:
-                    msg = 'Values for "' + and_operator + '" operator must be one of ' + str(Query.IS_VALUES)
-                    msg += ', unknown value: ' + and_value
+                    msg = f'Values for "{and_operator}" operator must be one of {Query.IS_VALUES}'
+                    msg += f', unknown value: {and_value}'
                     raise ValueError(msg)
             elif and_operator not in Query.OPERATORS:
-                raise ValueError('Unsupported operator: ' + and_operator)
+                raise ValueError(f'Unsupported operator: {and_operator}')
 
         # this returns the text "DELETE N" where N is the amount of things deleted
         sql = f'DELETE FROM {cls.schema_table} WHERE "{col_name}" {operator} ' # NOQA: S608
@@ -886,7 +886,7 @@ class Model:
         # NOTE that these are assumed to all be check constraints only
         if hasattr(cls.Meta, 'constraints'):
             for name, constraint in cls.Meta.constraints.items():
-                constraints.append('CONSTRAINT ' + name + ' ' + constraint)
+                constraints.append(f'CONSTRAINT {name} {constraint}')
 
         # add constraints to the end of the list
         columns.extend(constraints)
