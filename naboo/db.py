@@ -372,7 +372,8 @@ class Query:
     DIRECTIONS = ('ASC', 'DESC')
     FUNCTIONS = ('LOWER', 'UPPER')
     LOGICAL = ('AND', 'OR')
-    OPERATORS = ('=', '!=', '<', '>', '<=', '>=', 'LIKE', 'ILIKE') # 'IN', '%', '*', '!'
+    OPERATORS = ('=', '!=', '<', '>', '<=', '>=', 'LIKE', 'ILIKE') # '%', '*', '!'
+    LIST_OPERATORS = ('IN', 'NOT IN')
     IS_OPERATORS = ('IS', 'IS NOT')
     IS_VALUES = ('NULL', 'TRUE', 'FALSE', 'UNKOWN')
     # FUTURE: should we alias alternatives like `=>` and `=<` ? better to just have one way or allow either?
@@ -454,6 +455,9 @@ class Query:
                 msg = f'Values for "{operator}" operator must be one of {Query.IS_VALUES}'
                 msg += f', unknown value: {col_value}'
                 raise ValueError(msg)
+        elif operator in Query.LIST_OPERATORS:
+            if not isinstance(col_value, list) and not isinstance(col_value, Query):
+                raise ValueError(f'Values for "{operator}" operator must be a list or Query')
         elif operator not in Query.OPERATORS:
             raise ValueError(f'Unsupported operator: {operator}')
 
@@ -481,6 +485,16 @@ class Query:
         # FUTURE: is there a more elegant way to support this?
         if operator in Query.IS_OPERATORS:
             self._sql += f'{column} {operator} {col_value}'
+        elif operator in Query.LIST_OPERATORS:
+            if isinstance(col_value, list):
+                position = len(self.args) + 1
+
+                self._sql += f'{column} {operator} ${position}'
+
+                self.args.append(col_value)
+            else:
+                subquery_sql = self.position_subquery(col_value)
+                self._sql += f'{column} {operator} ({subquery_sql})'
         elif parent_query:
             # this checks that the col value is a part of the parent, and applies an alias
             parent_query._check_col(col_value) # NOQA: SLF001
@@ -514,8 +528,7 @@ class Query:
 
         return self
 
-    def exists(self, subquery):
-
+    def position_subquery(self, subquery):
         if not isinstance(subquery, Query):
             raise TypeError('Subquery must be an instance of `Query`')
 
@@ -540,6 +553,12 @@ class Query:
                 sql = sql.replace(f'${chr(i + 65)}', f'${position}')
                 self.args.append(arg)
                 position += 1
+
+        return sql
+
+    def exists(self, subquery):
+
+        sql = self.position_subquery(subquery)
 
         # WARNING - the subquery can be anything right now - do not expose to end users like this!
         self._sql += f' EXISTS ({sql})'

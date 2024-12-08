@@ -442,6 +442,42 @@ class TestQuery:
         first = await q.first()
         assert first is None
 
+    async def test_in_list(self, conn):
+        q = Query(conn, QueryTest)
+        q = q.where('name', 'IN', ['foo', 'bar'])
+
+        sql = f'SELECT * FROM {QueryTest.schema_table} WHERE "name" IN $1'
+        assert q.sql == sql
+
+    async def test_not_in_list(self, conn):
+        q = Query(conn, QueryTest)
+        q = q.where('name', 'NOT IN', ['foo', 'bar'])
+
+        sql = f'SELECT * FROM {QueryTest.schema_table} WHERE "name" NOT IN $1'
+        assert q.sql == sql
+
+    async def test_in_subquery(self, conn):
+        subq = Query(conn, QueryTest, columns=('name',))
+        subq.where('id', '=', '70211a2d-9715-45bb-9f91-033cc1b0b6b0')
+
+        q = Query(conn, QueryTest)
+        q.where('name', 'IN', subq)
+
+        subq_sql = f'SELECT "name" FROM {QueryTest.schema_table} WHERE "id" = $1'
+        sql = f'SELECT * FROM {QueryTest.schema_table} WHERE "name" IN ({subq_sql})'
+        assert q.sql == sql
+
+    async def test_not_in_subquery(self, conn):
+        subq = Query(conn, QueryTest, columns=('name',))
+        subq.where('id', '=', '70211a2d-9715-45bb-9f91-033cc1b0b6b0')
+
+        q = Query(conn, QueryTest)
+        q.where('name', 'IN', subq)
+
+        subq_sql = f'SELECT "name" FROM {QueryTest.schema_table} WHERE "id" = $1'
+        sql = f'SELECT * FROM {QueryTest.schema_table} WHERE "name" IN ({subq_sql})'
+        assert q.sql == sql
+
 
 class ModelTest(Model):
     id = UUIDField()
