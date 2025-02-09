@@ -303,6 +303,18 @@ def test_foreign_key_field():
     # FUTURE: test this constraint more thoroughly
     assert constraint is not None
 
+    # test that using a string works after the model already exists
+    field = ForeignKeyField('TestModel')
+    field.create('testtable2', 'foo2')
+
+    # test that using a string works before the model exists
+    field = ForeignKeyField('TestLazyInit')
+
+    class TestLazyInit(Model):
+        id = UUIDField()
+
+    field.create('testtable3', 'foo3')
+
 
 class QueryTest(Model):
     id = UUIDField()
@@ -325,7 +337,7 @@ class TestQuery:
         alias = 'testalias'
         q = Query(conn, QueryTest, alias=alias)
 
-        sql = f'SELECT * FROM public."query_test" AS "{alias}"' # NOQA: S608
+        sql = f'SELECT * FROM public."query_test" AS "{alias}"'
         assert q.sql == sql
 
         # can't close a group before you start
@@ -372,7 +384,7 @@ class TestQuery:
         subquery = Query(conn, QueryTest, columns=('id',), alias='s1').where('name', '=', 'foo').where(
             'name', '=', 'name', parent_query=q)
 
-        sub_sql = f'SELECT "id" FROM {QueryTest.schema_table} AS "s1" WHERE "s1"."name" = $1 ' # NOQA: S608
+        sub_sql = f'SELECT "id" FROM {QueryTest.schema_table} AS "s1" WHERE "s1"."name" = $1 '
         sub_sql += f'AND "s1"."name" = "{alias}"."name"'
         assert subquery.sql == sub_sql
 

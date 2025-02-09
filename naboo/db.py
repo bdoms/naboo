@@ -12,6 +12,7 @@ MAX_FIELD_LENGTH = 1024 * 1024 # 1 MB
 MAX_LABEL_LENGTH = 63
 MAX_LIMIT = 10000
 MAX_SUBQUERY_ARGS = 9
+MODELS = {}
 
 
 # NOTE that a class with only classmethods like this and changing the class properties is effectively a singleton
@@ -273,7 +274,35 @@ class FloatField(Field):
 
 class ForeignKeyField(Field):
 
+    # this has a few options for dealing with what we need here:
+    # https://stackoverflow.com/questions/45194553/how-can-i-delay-the-init-call-until-an-attribute-is-accessed
+    def __getattribute__(self, attr):
+        if object.__getattribute__(self, '_initialized') or attr == '__init__' or attr.startswith('_lazy_'):
+            return object.__getattribute__(self, attr)
+
+        self.__init__(self._lazy_class, default=self._lazy_default, **self._lazy_kwargs)
+
+        delattr(self, '_lazy_class')
+        delattr(self, '_lazy_default')
+        delattr(self, '_lazy_kwargs')
+
+        return object.__getattribute__(self, attr)
+
     def __init__(self, model_class, default=None, **kwargs) -> None:
+        if isinstance(model_class, str):
+            if model_class in MODELS:
+                model_class = MODELS.get(model_class)
+            elif hasattr(self, '_lazy_class'):
+                raise TypeError(f'Failed to lazily init {self.__class__} - could not find model class "{model_class}"')
+            else:
+                self._lazy_class = model_class
+                self._lazy_default = default
+                self._lazy_kwargs = kwargs
+                self._initialized = False
+                return
+
+        self._initialized = True
+
         if model_class.id.db_type == 'uuid':
             if default is not None and not isinstance(default, UUID):
                 raise TypeError(f'Invalid default type: {type(default)}')
@@ -391,6 +420,7 @@ class Query:
 
         self._sql = 'SELECT '
         if columns:
+            # FUTURE: support referencing a model's field here and pull in the str from that
             for column in columns:
                 self._check_col(column)
 
@@ -657,6 +687,11 @@ class Model:
         # table = ''
 
         # constraints = {}
+
+    # https://docs.python.org/3/reference/datamodel.html#object.__init_subclass__
+    def __init_subclass__(cls, /, **kwargs):
+        super().__init_subclass__(**kwargs)
+        MODELS[cls.__name__] = cls
 
     # docs: https://magicstack.github.io/asyncpg/current/api/index.html
     # examples: https://github.com/jordic/fastapi_asyncpg/blob/master/fastapi_asyncpg/sql.py
