@@ -458,14 +458,14 @@ class TestQuery:
         q = Query(conn, QueryTest)
         q = q.where('name', 'IN', ['foo', 'bar'])
 
-        sql = f'SELECT * FROM {QueryTest.schema_table} WHERE "name" IN $1'
+        sql = f'SELECT * FROM {QueryTest.schema_table} WHERE "name" = Any($1)'
         assert q.sql == sql
 
     async def test_not_in_list(self, conn):
         q = Query(conn, QueryTest)
         q = q.where('name', 'NOT IN', ['foo', 'bar'])
 
-        sql = f'SELECT * FROM {QueryTest.schema_table} WHERE "name" NOT IN $1'
+        sql = f'SELECT * FROM {QueryTest.schema_table} WHERE "name" != Any($1)'
         assert q.sql == sql
 
     async def test_in_subquery(self, conn):

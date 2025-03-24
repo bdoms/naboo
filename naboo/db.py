@@ -519,7 +519,16 @@ class Query:
             if isinstance(col_value, list):
                 position = len(self.args) + 1
 
-                self._sql += f'{column} {operator} ${position}'
+                # postgres doesn't let you parameterize an array for use with "IN"
+                # the recommended way is to use Any instead
+                if operator == 'IN':
+                    list_op = '='
+                elif operator == 'NOT IN':
+                    list_op = '!='
+                else:
+                    raise NotImplementedError
+
+                self._sql += f'{column} {list_op} Any(${position})'
 
                 self.args.append(col_value)
             else:
