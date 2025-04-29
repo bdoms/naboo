@@ -1,6 +1,6 @@
 [tool.poetry]
 name = 'naboo'
-version = '0.1.9'
+version = '0.1.10'
 description = ''
 
 license = 'MIT'
@@ -27,7 +27,7 @@ python = '^3.12'
 asyncpg = '0.30.0'
 
 [tool.poetry.dev-dependencies]
-pytest = '8.3.3'
-pytest-asyncio = '0.24.0'
-pytest-env = '1.1.4'
-ruff = '0.7.2'
+pytest = '8.3.5'
+pytest-asyncio = '0.26.0'
+pytest-env = '1.1.5'
+ruff = '0.11.7'

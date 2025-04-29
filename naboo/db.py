@@ -404,7 +404,7 @@ class Query:
     OPERATORS = ('=', '!=', '<', '>', '<=', '>=', 'LIKE', 'ILIKE') # '%', '*', '!'
     LIST_OPERATORS = ('IN', 'NOT IN')
     IS_OPERATORS = ('IS', 'IS NOT')
-    IS_VALUES = ('NULL', 'TRUE', 'FALSE', 'UNKOWN')
+    IS_VALUES = ('NULL', 'TRUE', 'FALSE', 'UNKNOWN') # DISTINCT, NORMALIZED, JSON, etc.
     # FUTURE: should we alias alternatives like `=>` and `=<` ? better to just have one way or allow either?
 
     def __init__(self, conn, model_class, columns=None, alias=None) -> None:
@@ -480,6 +480,9 @@ class Query:
 
         self._check_col(col_name)
 
+        if col_value is None:
+            col_value = 'NULL'
+
         if operator in Query.IS_OPERATORS:
             if col_value not in Query.IS_VALUES:
                 msg = f'Values for "{operator}" operator must be one of {Query.IS_VALUES}'
@@ -488,7 +491,10 @@ class Query:
         elif operator in Query.LIST_OPERATORS:
             if not isinstance(col_value, list) and not isinstance(col_value, Query):
                 raise ValueError(f'Values for "{operator}" operator must be a list or Query')
-        elif operator not in Query.OPERATORS:
+        elif operator in Query.OPERATORS:
+            if col_value == 'NULL':
+                raise ValueError(f'Values for "{operator}" operator must not be "NULL"')
+        else:
             raise ValueError(f'Unsupported operator: {operator}')
 
         if logic and logic not in Query.LOGICAL:
@@ -505,8 +511,10 @@ class Query:
         else:
             self._sql += ' WHERE '
 
-        alias = self.alias and (f'{self.alias}"."') or ''
-        column = f'"{alias}{col_name}"'
+        if self.alias: # NOQA: SIM108
+            column = f'"{self.alias}"."{col_name}"'
+        else:
+            column = f'"{col_name}"'
 
         if func:
             column = f'{func}({column})'
@@ -715,13 +723,18 @@ class Model:
     @property
     def meta_table(cls):
         # this fallback auto converts from TitleCase to under_scores based on the class name
-        return hasattr(cls.Meta, 'table') and cls.Meta.table \
-            or ''.join(['_' + c.lower() if c.isupper() else c for c in cls.__name__]).lstrip('_')
+        if hasattr(cls.Meta, 'table'):
+            return cls.Meta.table
+
+        return ''.join(['_' + c.lower() if c.isupper() else c for c in cls.__name__]).lstrip('_')
 
     @classmethod
     @property
     def meta_schema(cls):
-        return hasattr(cls.Meta, 'schema') and cls.Meta.schema or Model.Meta.schema
+        if hasattr(cls.Meta, 'schema'):
+            return cls.Meta.schema
+
+        return Model.Meta.schema
 
     @classmethod
     @property

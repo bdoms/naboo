@@ -366,6 +366,12 @@ class TestQuery:
         with pytest.raises(ValueError):
             q.where('doesntexist', '=', 'foo')
 
+        with pytest.raises(ValueError):
+            q.where('name', '=', None)
+
+        with pytest.raises(ValueError):
+            q.where('name', 'IS', 'foo')
+
         q.where('name', '=', 'foo')
 
         sql += f'"{alias}"."name" = $1'
