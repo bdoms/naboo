@@ -1,16 +1,24 @@
-[tool.poetry]
+[project]
 name = 'naboo'
-version = '0.1.10'
+version = '0.1.11'
 description = ''
 
 license = 'MIT'
 
-authors = ['Brendan Doms']
+authors = [{name = 'Brendan Doms'}]
 
 readme = 'README.md'
 
 repository = 'https://github.com/bdoms/naboo'
 homepage = 'https://github.com/bdoms/naboo'
+
+requires-python = '>=3.12'
+
+dependencies = [
+    'asyncpg == 0.30.0'
+]
+
+[tool.poetry]
 
 packages = [
     {include = 'naboo'}
@@ -22,11 +30,7 @@ packages = [
 # exclude = [
 # ]
 
-[tool.poetry.dependencies]
-python = '^3.12'
-asyncpg = '0.30.0'
-
-[tool.poetry.dev-dependencies]
+[tool.poetry.group.dev.dependencies]
 pytest = '8.3.5'
 pytest-asyncio = '0.26.0'
 pytest-env = '1.1.5'
