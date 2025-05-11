@@ -21,10 +21,11 @@ class Database:
     pool = None
 
     @classmethod
-    async def startup(cls, name, user, password, host='localhost', port='5432'):
+    async def startup(cls, name, user, password, host='localhost', port='5432', pool_size=10):
 
         # see here for connection arguments: https://github.com/MagicStack/asyncpg/blob/master/asyncpg/connection.py
-        cls.pool = await asyncpg.create_pool(host=host, port=port, user=user, password=password, database=name)
+        cls.pool = await asyncpg.create_pool(host=host, port=port, user=user, password=password, database=name,
+            min_size=pool_size, max_size=pool_size)
 
     @classmethod
     async def shutdown(cls):
