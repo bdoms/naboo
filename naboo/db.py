@@ -169,6 +169,31 @@ class BooleanField(Field):
         super().__init__(default=default, **kwargs)
 
 
+class ByteField(Field):
+
+    db_type = 'bytea'
+
+    def __init__(self, default=None, **kwargs) -> None:
+        # default needs to wrapped in single quotes
+        if default is not None:
+            if not isinstance(default, bytes):
+                raise TypeError(f'Invalid default type: {type(default)}')
+
+            # NOTE: in theory we could escape these below, but not sure it's safe
+            # probably need some other method to ensure there aren't any crazy tricks here
+            # after way too much investigation it's unclear if there is a good method to allow this
+            if b"'" in default or b'\\' in default:
+                raise ValueError(f'Single quotes and backslashes are not allowed in default values: {default}')
+                # escape bad characters
+                # default = default.replace("'", "''").replace('\', '\\')
+
+            # wrap it in quotes - note that the decode could fail here
+            # but we need to decode because our create command is sent as a string
+            default = "'" + default.decode() + "'"
+
+        super().__init__(default=default, **kwargs)
+
+
 class CharField(Field):
 
     db_type = 'varchar'
