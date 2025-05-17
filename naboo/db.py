@@ -32,7 +32,7 @@ class Database:
         # we have to enforce a timeout externally ourselves - this is the recommended way in the docs
         try:
             await asyncio.wait_for(cls.pool.close(), timeout=1)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             cls.pool.terminate()
 
     @classmethod
@@ -692,7 +692,9 @@ class Query:
         return self.model_class.convert(await self.conn.fetchrow(self.sql, *self.args))
 
 
-class Model:
+# Python 3.13 removed the ability to chain classmethod and property decorators
+# this is a workaround for achieving the same behavior
+class _ModelMeta(type):
 
     _fields = None
     _fields_class = None
@@ -706,47 +708,6 @@ class Model:
 
         # constraints = {}
 
-    # https://docs.python.org/3/reference/datamodel.html#object.__init_subclass__
-    def __init_subclass__(cls, /, **kwargs):
-        super().__init_subclass__(**kwargs)
-        MODELS[cls.__name__] = cls
-
-    # docs: https://magicstack.github.io/asyncpg/current/api/index.html
-    # examples: https://github.com/jordic/fastapi_asyncpg/blob/master/fastapi_asyncpg/sql.py
-
-    # FUTURE: can we generalize checking these values and turning them into properties
-    # so we don't have to do each individually?
-
-    # also NOTE that caching these by setting the values on the class after first access can cause big problems
-    # we have cls.schema_table = schema_table at the end of that and it cached the BASE class version for all children
-    # caching stuff like that will have to take the cls.__name__ into account
-    @classmethod
-    @property
-    def meta_table(cls):
-        # this fallback auto converts from TitleCase to under_scores based on the class name
-        if hasattr(cls.Meta, 'table'):
-            return cls.Meta.table
-
-        return ''.join(['_' + c.lower() if c.isupper() else c for c in cls.__name__]).lstrip('_')
-
-    @classmethod
-    @property
-    def meta_schema(cls):
-        if hasattr(cls.Meta, 'schema'):
-            return cls.Meta.schema
-
-        return Model.Meta.schema
-
-    @classmethod
-    @property
-    def schema_table(cls):
-        # NOTE: if schema is quoted together with the table name then postgres assumes it's in the public schema
-        # e.g. "public.user" gets converted to "public.public.user" which doesn't exist
-        # could still put schema in quotes separately if we're concerned ("schema"."table")
-        # but they're all system defined so it shouldn't be an issue
-        return f'{cls.meta_schema}."{cls.meta_table}"'
-
-    @classmethod
     @property
     def fields(cls):
         # NOTE: this guard is needed to avoid infinite recursion caused by the getmembers call
@@ -764,6 +725,43 @@ class Model:
                     cls._fields[name.strip('_')] = field
 
         return cls._fields
+
+    # also NOTE that caching these by setting the values on the class after first access can cause big problems
+    # we have cls.schema_table = schema_table at the end of that and it cached the BASE class version for all children
+    # caching stuff like that will have to take the cls.__name__ into account
+    @property
+    def meta_table(cls):
+        # this fallback auto converts from TitleCase to under_scores based on the class name
+        if hasattr(cls.Meta, 'table'):
+            return cls.Meta.table
+
+        return ''.join(['_' + c.lower() if c.isupper() else c for c in cls.__name__]).lstrip('_')
+
+    @property
+    def meta_schema(cls):
+        if hasattr(cls.Meta, 'schema'):
+            return cls.Meta.schema
+
+        return _ModelMeta.Meta.schema
+
+    @property
+    def schema_table(cls):
+        # NOTE: if schema is quoted together with the table name then postgres assumes it's in the public schema
+        # e.g. "public.user" gets converted to "public.public.user" which doesn't exist
+        # could still put schema in quotes separately if we're concerned ("schema"."table")
+        # but they're all system defined so it shouldn't be an issue
+        return f'{cls.meta_schema}."{cls.meta_table}"'
+
+
+class Model(metaclass=_ModelMeta):
+
+    # https://docs.python.org/3/reference/datamodel.html#object.__init_subclass__
+    def __init_subclass__(cls, /, **kwargs):
+        super().__init_subclass__(**kwargs)
+        MODELS[cls.__name__] = cls
+
+    # docs: https://magicstack.github.io/asyncpg/current/api/index.html
+    # examples: https://github.com/jordic/fastapi_asyncpg/blob/master/fastapi_asyncpg/sql.py
 
     @classmethod
     def convert(cls, item):
