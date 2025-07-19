@@ -144,7 +144,6 @@ def test_byte_field():
         field.create('testtable', 'id')
 
     col, constraint = field.create('testtable', 'foo')
-    print(col)
     assert col == f'"foo" {field.db_type} DEFAULT \'abc\' NOT NULL'
     assert constraint is None
 

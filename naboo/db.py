@@ -21,14 +21,17 @@ class Database:
     pool = None
 
     @classmethod
-    async def startup(cls, name, user, password, host='localhost', port='5432', pool_size=10):
+    async def startup(cls, name, user, password, host='localhost', port='5432', pool_size=10, **kwargs):
 
         # see here for connection arguments: https://github.com/MagicStack/asyncpg/blob/master/asyncpg/connection.py
         cls.pool = await asyncpg.create_pool(host=host, port=port, user=user, password=password, database=name,
-            min_size=pool_size, max_size=pool_size)
+            min_size=pool_size, max_size=pool_size, **kwargs)
 
     @classmethod
     async def shutdown(cls):
+        if not cls.pool:
+            return
+
         # we have to enforce a timeout externally ourselves - this is the recommended way in the docs
         try:
             await asyncio.wait_for(cls.pool.close(), timeout=1)
@@ -40,13 +43,17 @@ class Database:
         return await cls.pool.acquire()
 
     @classmethod
+    async def disconnect(cls, conn):
+        await cls.pool.release(conn)
+
+    @classmethod
     @asynccontextmanager
     async def connection(cls):
-        conn = await cls.pool.acquire()
-        try:
-            yield conn
-        finally:
-            await conn.close()
+        async with cls.pool.acquire() as conn:
+            try:
+                yield conn
+            finally:
+                await cls.pool.release(conn)
 
     @classmethod
     async def dropTables(cls, conn):
