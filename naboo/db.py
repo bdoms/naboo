@@ -44,7 +44,7 @@ class Database:
 
     @classmethod
     async def disconnect(cls, conn):
-        await cls.pool.release(conn)
+        await cls.pool.release(conn, timeout=1)
 
     @classmethod
     @asynccontextmanager
@@ -53,7 +53,7 @@ class Database:
             try:
                 yield conn
             finally:
-                await cls.pool.release(conn)
+                await cls.pool.release(conn, timeout=1)
 
     @classmethod
     async def dropTables(cls, conn):
