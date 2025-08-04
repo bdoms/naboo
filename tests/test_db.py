@@ -416,11 +416,17 @@ class TestQuery:
         sql += ' OR'
         assert q.sql == sql
 
+        # select columns, where column, and values use strings
         subquery = Query(conn, QueryTest, columns=('id',), alias='s1').where('name', '=', 'foo').where(
             'name', '=', 'name', parent_query=q)
 
         sub_sql = f'SELECT "id" FROM {QueryTest.schema_table} AS "s1" WHERE "s1"."name" = $1 '
         sub_sql += f'AND "s1"."name" = "{alias}"."name"'
+        assert subquery.sql == sub_sql
+
+        # should be the exact same resulting sql when using the field from the model's attribute
+        subquery = Query(conn, QueryTest, columns=(QueryTest.id,), alias='s1').where(
+            QueryTest.name, '=', 'foo').where('name', '=', QueryTest.name, parent_query=q)
         assert subquery.sql == sub_sql
 
         # the generated sql has different numbers because of pre-existing parameters on the parent query

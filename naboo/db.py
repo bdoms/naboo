@@ -441,7 +441,6 @@ class Query:
     # FUTURE: should we alias alternatives like `=>` and `=<` ? better to just have one way or allow either?
 
     def __init__(self, conn, model_class, columns=None, alias=None) -> None:
-        # FUTURE: support selecting specific columns here - note that the count function below will have to be modified
         self.conn = conn
         self.model_class = model_class
         self.args = []
@@ -453,9 +452,10 @@ class Query:
 
         self._sql = 'SELECT '
         if columns:
-            # FUTURE: support referencing a model's field here and pull in the str from that
-            for column in columns:
-                self._check_col(column)
+            if isinstance(columns, str):
+                columns = columns.split(',')
+
+            columns = [self._check_col(column) for column in columns]
 
             self._sql += ', '.join([f'"{column}"' for column in columns])
         else:
@@ -483,9 +483,15 @@ class Query:
         return sql
 
     def _check_col(self, name):
-        fields = self.model_class.fields
-        if name not in fields:
-            raise ValueError(f'Unknown field {name}')
+        if name not in self.model_class.fields:
+            # name can also be a field instance, which we convert to its name
+            field_name = self.model_class.field_names.get(name)
+            if field_name:
+                name = field_name
+            else:
+                raise ValueError(f'Unknown field {name}')
+
+        return name
 
     def start_logic(self):
         if ' WHERE ' not in self._sql:
@@ -511,7 +517,7 @@ class Query:
 
     def where(self, col_name, operator, col_value, logic='AND', func=None, parent_query=None):
 
-        self._check_col(col_name)
+        col_name = self._check_col(col_name)
 
         if col_value is None:
             col_value = 'NULL'
@@ -577,7 +583,7 @@ class Query:
                 self._sql += f'{column} {operator} ({subquery_sql})'
         elif parent_query:
             # this checks that the col value is a part of the parent, and applies an alias
-            parent_query._check_col(col_value) # NOQA: SLF001
+            col_value = parent_query._check_col(col_value) # NOQA: SLF001
 
             if not parent_query.alias:
                 raise RuntimeError('Alias is required when using a parent query column as a value')
@@ -647,7 +653,7 @@ class Query:
 
     def order_by(self, col_name, direction='ASC'):
 
-        self._check_col(col_name)
+        col_name = self._check_col(col_name)
 
         if direction not in Query.DIRECTIONS:
             raise ValueError(f'Unsupported direction: {direction}')
@@ -729,6 +735,7 @@ class Query:
 class _ModelMeta(type):
 
     _fields = None
+    _field_names = None
     _fields_class = None
 
     class Meta:
@@ -744,8 +751,9 @@ class _ModelMeta(type):
     def fields(cls):
         # NOTE: this guard is needed to avoid infinite recursion caused by the getmembers call
         # and the class name keeps earlier calls to base classes from overriding child classes
-        if cls._fields is None or cls._fields_class != cls.__name__:
+        if cls._fields is None or cls._field_names is None or cls._fields_class != cls.__name__:
             cls._fields_class = cls.__name__
+            cls._field_names = {}
             cls._fields = {}
 
             attributes = inspect.getmembers(cls, lambda a: not(inspect.isroutine(a)))
@@ -754,9 +762,17 @@ class _ModelMeta(type):
                 if isinstance(field, Field):
                     # NOTE: the strip here allows for correcting conflicts between built in methods and field names
                     # e.g. there's a `create` method so we call a field `create_` and it works because of this
-                    cls._fields[name.strip('_')] = field
+                    field_name = name.rstrip('_')
+                    cls._fields[field_name] = field
+                    cls._field_names[field] = name.rstrip('_')
 
         return cls._fields
+
+    @property
+    def field_names(cls):
+        if cls._field_names is None:
+            cls.fields # NOQA: B018
+        return cls._field_names
 
     # also NOTE that caching these by setting the values on the class after first access can cause big problems
     # we have cls.schema_table = schema_table at the end of that and it cached the BASE class version for all children
