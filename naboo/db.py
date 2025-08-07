@@ -19,16 +19,18 @@ MODELS = {}
 class Database:
 
     pool = None
+    acquire_timeout = None
     release_timeout = None
 
     @classmethod
-    async def startup(cls, name, user, password, host='localhost', port='5432', pool_size=10,
-            release_timeout=None, **kwargs):
+    async def startup(cls, name, user, password, host='localhost', port='5432',
+            min_pool_size=10, max_pool_size=10, acquire_timeout=None, release_timeout=None, **kwargs):
 
         # see here for connection arguments: https://github.com/MagicStack/asyncpg/blob/master/asyncpg/connection.py
         cls.pool = await asyncpg.create_pool(host=host, port=port, user=user, password=password, database=name,
-            min_size=pool_size, max_size=pool_size, **kwargs)
+            min_size=min_pool_size, max_size=max_pool_size, **kwargs)
 
+        cls.acquire_timeout = acquire_timeout
         cls.release_timeout = release_timeout
 
     @classmethod
@@ -44,7 +46,7 @@ class Database:
 
     @classmethod
     async def connect(cls):
-        return await cls.pool.acquire()
+        return await cls.pool.acquire(timeout=cls.acquire_timeout)
 
     @classmethod
     async def disconnect(cls, conn):
