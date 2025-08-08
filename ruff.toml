@@ -41,5 +41,5 @@ select = [
 ]
 
 [lint.per-file-ignores]
-'naboo/*' = ['N802']
+'naboo/*' = ['ASYNC109', 'N802']
 'tests/*' = ['PT011', 'S101', 'S608']

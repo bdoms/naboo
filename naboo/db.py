@@ -34,32 +34,44 @@ class Database:
         cls.release_timeout = release_timeout
 
     @classmethod
-    async def shutdown(cls):
+    async def shutdown(cls, timeout=5):
         if not cls.pool:
             return
 
         # we have to enforce a timeout externally ourselves - this is the recommended way in the docs
         try:
-            await asyncio.wait_for(cls.pool.close(), timeout=5)
+            await asyncio.wait_for(cls.pool.close(), timeout=timeout)
         except TimeoutError:
             cls.pool.terminate()
 
     @classmethod
-    async def connect(cls):
-        return await cls.pool.acquire(timeout=cls.acquire_timeout)
+    async def connect(cls, timeout=None):
+        if timeout is None:
+            timeout = cls.acquire_timeout
+
+        return await cls.pool.acquire(timeout=timeout)
 
     @classmethod
-    async def disconnect(cls, conn):
-        await cls.pool.release(conn, timeout=cls.release_timeout)
+    async def disconnect(cls, conn, timeout=None):
+        if timeout is None:
+            timeout = cls.release_timeout
+
+        await cls.pool.release(conn, timeout=timeout)
 
     @classmethod
     @asynccontextmanager
-    async def connection(cls):
-        async with cls.pool.acquire() as conn:
+    async def connection(cls, timeout=None):
+        acquire_timeout = cls.acquire_timeout
+        release_timeout = cls.release_timeout
+        if timeout is not None:
+            acquire_timeout = timeout
+            release_timeout = timeout
+
+        async with cls.pool.acquire(timeout=acquire_timeout) as conn:
             try:
                 yield conn
             finally:
-                await cls.pool.release(conn, timeout=cls.release_timeout)
+                await cls.pool.release(conn, timeout=release_timeout)
 
     @classmethod
     async def dropTables(cls, conn):
@@ -447,6 +459,10 @@ class Query:
     # FUTURE: should we alias alternatives like `=>` and `=<` ? better to just have one way or allow either?
 
     def __init__(self, conn, model_class, columns=None, alias=None) -> None:
+        # FUTURE: manage connections itself - databases project does this by getting the current asyncio task
+        # and looking it up in a hash table - literally just asyncio.current_task()
+        # assuming that litestar plays nice it'd work, and eliminate acquiring on requests that didn't need it
+
         self.conn = conn
         self.model_class = model_class
         self.args = []
@@ -455,6 +471,11 @@ class Query:
         self.order_by_sql = ''
         self.limit_sql = ''
         self.offset_sql = ''
+
+        # FUTURE: rearchitect this to wait on all string operations until the end
+        # then do a compile step, and keep an lru cache of compiled sql
+        # (could try to hash all the non-replacement values of the query as a key)
+        # this is what sqlalchemy does
 
         self._sql = 'SELECT '
         if columns:
