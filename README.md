@@ -26,5 +26,11 @@ ALTER SCHEMA public OWNER TO naboo_test_user;
 Then to run tests:
 
 ```bash
-pytest
+uv run pytest
+```
+
+Lint:
+
+```bash
+uv run ruff check .
 ```

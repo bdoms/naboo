@@ -1,3 +1,4 @@
 *.pyc
 
 dist
+naboo.egg-info
