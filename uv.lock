@@ -62,7 +62,7 @@ wheels = [
 
 [[package]]
 name = "naboo"
-version = "0.1.20"
+version = "0.1.21"
 source = { virtual = "." }
 dependencies = [
     { name = "asyncpg" },

@@ -183,6 +183,17 @@ class ArrayField(Field):
         return f'{self.array_type}[]'
 
 
+class BigIntField(Field):
+
+    db_type = 'bigint'
+
+    def __init__(self, default=None, **kwargs) -> None:
+        if default is not None and not isinstance(default, int):
+            raise TypeError(f'Invalid default type: {type(default)}')
+
+        super().__init__(default=default, **kwargs)
+
+
 class BooleanField(Field):
 
     db_type = 'boolean'
@@ -383,6 +394,17 @@ class ForeignKeyField(Field):
 class IntField(Field):
 
     db_type = 'integer'
+
+    def __init__(self, default=None, **kwargs) -> None:
+        if default is not None and not isinstance(default, int):
+            raise TypeError(f'Invalid default type: {type(default)}')
+
+        super().__init__(default=default, **kwargs)
+
+
+class SmallIntField(Field):
+
+    db_type = 'smallint'
 
     def __init__(self, default=None, **kwargs) -> None:
         if default is not None and not isinstance(default, int):
