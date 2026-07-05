@@ -26,6 +26,9 @@ class Database:
     async def startup(cls, name, user, password, host='localhost', port='5432',
             min_pool_size=10, max_pool_size=10, acquire_timeout=None, release_timeout=None, **kwargs):
 
+        if cls.pool:
+            raise RuntimeWarning('Database has already started')
+
         # see here for connection arguments: https://github.com/MagicStack/asyncpg/blob/master/asyncpg/connection.py
         cls.pool = await asyncpg.create_pool(host=host, port=port, user=user, password=password, database=name,
             min_size=min_pool_size, max_size=max_pool_size, **kwargs)
@@ -43,6 +46,8 @@ class Database:
             await asyncio.wait_for(cls.pool.close(), timeout=timeout)
         except TimeoutError:
             cls.pool.terminate()
+
+        cls.pool = None
 
     @classmethod
     async def connect(cls, timeout=None):
@@ -166,7 +171,10 @@ class ArrayField(Field):
             raise TypeError(f'Invalid array type: {array_type}')
 
         if default is not None:
-            if not isinstance(default, list):
+            if isinstance(default, (set, tuple)):
+                # coerce to list so the SQL gets generated correctly
+                default = list(default)
+            elif not isinstance(default, list):
                 raise TypeError(f'Invalid default type: {type(default)}')
 
             for item in default:
@@ -577,7 +585,7 @@ class Query:
                 msg += f', unknown value: {col_value}'
                 raise ValueError(msg)
         elif operator in Query.LIST_OPERATORS:
-            if not isinstance(col_value, list) and not isinstance(col_value, Query):
+            if not isinstance(col_value, (list, set, tuple, Query)):
                 raise ValueError(f'Values for "{operator}" operator must be a list or Query')
         elif operator in Query.OPERATORS:
             if col_value == 'NULL':
@@ -612,7 +620,7 @@ class Query:
         if operator in Query.IS_OPERATORS:
             self._sql += f'{column} {operator} {col_value}'
         elif operator in Query.LIST_OPERATORS:
-            if isinstance(col_value, list):
+            if isinstance(col_value, (list, set, tuple)):
                 position = len(self.args) + 1
 
                 # postgres doesn't let you parameterize an array for use with "IN"
@@ -647,7 +655,7 @@ class Query:
             position = len(self.args) + 1
 
             # FUTURE: handle tuples? handle other logic matching conditions?
-            pos = f'ANY(${position})' if isinstance(col_value, list) else f'${position}'
+            pos = f'ANY(${position})' if isinstance(col_value, (list, set, tuple)) else f'${position}'
 
             self._sql += f'{column} {operator} {pos}'
 
@@ -997,7 +1005,7 @@ class Model(metaclass=_ModelMeta):
         # this returns the text "DELETE N" where N is the amount of things deleted
         sql = f'DELETE FROM {cls.schema_table} WHERE "{col_name}" {operator} ' # NOQA: S608
 
-        if isinstance(col_value, list):
+        if isinstance(col_value, (list, set, tuple)):
             sql += 'ANY($1)'
         else:
             sql += '$1'

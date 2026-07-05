@@ -11,6 +11,8 @@ from naboo import (Database, Field, Query, Model, ArrayField, BigIntField, Boole
 from naboo.db import MAX_FIELD_LENGTH
 
 
+# FUTURE: starting up and shutting down the DB each time is slow, but it ensures we don't run into event loop issues
+# but we should figure out how to avoid those while only starting up once
 async def setup_db():
     await Database.startup(os.environ['POSTGRES_DB'], os.environ['POSTGRES_USER'],
         os.environ['POSTGRES_PASSWORD'])
@@ -21,6 +23,7 @@ async def setup_table(table_class):
     db_conn = await Database.connect()
     await table_class.createTable(db_conn)
     await db_conn.close()
+    await Database.shutdown()
 
 
 async def teardown_table(table_class):
@@ -28,6 +31,7 @@ async def teardown_table(table_class):
     db_conn = await Database.connect()
     await table_class.dropTable(db_conn)
     await db_conn.close()
+    await Database.shutdown()
 
 
 @pytest.fixture
@@ -40,6 +44,7 @@ async def conn():
     yield db_conn
 
     await db_conn.close()
+    await Database.shutdown()
 
 
 def test_field_create():
@@ -106,6 +111,17 @@ def test_array_field():
 
     col, constraint = field.create('testtable', 'foo')
     assert col == f'"foo" {field.field_type} DEFAULT [\'abc\'] NOT NULL'
+    assert constraint is None
+
+    # repeat again with set and tuple
+    field = ArrayField(str, default={'abc'})
+    col, constraint = field.create('testtable', 'bar')
+    assert col == f'"bar" {field.field_type} DEFAULT [\'abc\'] NOT NULL'
+    assert constraint is None
+
+    field = ArrayField(str, default=('abc',))
+    col, constraint = field.create('testtable', 'fizz')
+    assert col == f'"fizz" {field.field_type} DEFAULT [\'abc\'] NOT NULL'
     assert constraint is None
 
 
@@ -525,16 +541,41 @@ class TestQuery:
         first = await q.first()
         assert first is None
 
-    async def test_in_list(self, conn):
+    async def test_in_array(self, conn):
+        # test with lists, sets, and tuples
         q = Query(conn, QueryTest)
         q = q.where('name', 'IN', ['foo', 'bar'])
 
         sql = f'SELECT * FROM {QueryTest.schema_table} WHERE "name" = Any($1)'
         assert q.sql == sql
 
-    async def test_not_in_list(self, conn):
+        q = Query(conn, QueryTest)
+        q = q.where('name', 'IN', {'foo', 'bar'})
+
+        sql = f'SELECT * FROM {QueryTest.schema_table} WHERE "name" = Any($1)'
+        assert q.sql == sql
+
+        q = Query(conn, QueryTest)
+        q = q.where('name', 'IN', ('foo', 'bar'))
+
+        sql = f'SELECT * FROM {QueryTest.schema_table} WHERE "name" = Any($1)'
+        assert q.sql == sql
+
+    async def test_not_in_array(self, conn):
         q = Query(conn, QueryTest)
         q = q.where('name', 'NOT IN', ['foo', 'bar'])
+
+        sql = f'SELECT * FROM {QueryTest.schema_table} WHERE "name" != Any($1)'
+        assert q.sql == sql
+
+        q = Query(conn, QueryTest)
+        q = q.where('name', 'NOT IN', {'foo', 'bar'})
+
+        sql = f'SELECT * FROM {QueryTest.schema_table} WHERE "name" != Any($1)'
+        assert q.sql == sql
+
+        q = Query(conn, QueryTest)
+        q = q.where('name', 'NOT IN', ('foo', 'bar'))
 
         sql = f'SELECT * FROM {QueryTest.schema_table} WHERE "name" != Any($1)'
         assert q.sql == sql
