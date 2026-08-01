@@ -602,6 +602,15 @@ class TestQuery:
         sql = f'SELECT * FROM {QueryTest.schema_table} WHERE "name" IN ({subq_sql})'
         assert q.sql == sql
 
+    async def test_logic(self, conn):
+        # specifically want to test when logic comes after the first WHERE
+        q = Query(conn, QueryTest)
+        q.where('id', 'IS NOT', None).start_logic().where('name', '=', 'foo').where(
+            'name', '=', 'bar', logic='OR').end_logic()
+
+        sql = f'SELECT * FROM {QueryTest.schema_table} WHERE "id" IS NOT NULL AND ("name" = $1 OR "name" = $2)'
+        assert q.sql == sql
+
 
 class ModelTest(Model):
     id = UUIDField()

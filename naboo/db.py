@@ -550,8 +550,11 @@ class Query:
 
         return name
 
-    def start_logic(self):
-        if ' WHERE ' not in self._sql:
+    def start_logic(self, logic='AND'):
+        if ' WHERE ' in self._sql:
+            if logic:
+                self._sql += f' {logic}'
+        else:
             self._sql += ' WHERE'
 
         self._sql += ' ('
