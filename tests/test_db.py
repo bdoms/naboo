@@ -563,7 +563,7 @@ class TestQuery:
         assert len(rows) == 0
 
         count = await q.count()
-        assert count == 0
+        assert count is None
 
     async def test_in_array(self, conn):
         # test with lists, sets, and tuples
