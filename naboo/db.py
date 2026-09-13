@@ -794,7 +794,7 @@ class Query:
         sql = self.sql.replace('SELECT * FROM', f'SELECT {select_count} FROM', 1)
 
         if self.group_by_cols:
-            return self.model_class.convert(await self.conn.fetchrow(sql, *self.args))
+            return self.model_class.convert(await self.conn.fetch(sql, *self.args))
 
         # the "or 0" is because this returns None if there are no results, but we want consistent return types
         return await self.conn.fetchval(sql, *self.args) or 0
