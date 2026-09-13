@@ -3,7 +3,7 @@ line-length = 120
 [lint]
 flake8-quotes = {inline-quotes='single'}
 
-ignore = ['ISC003', 'PLR0912', 'PLR0913', 'PLR0915']
+ignore = ['ISC003', 'PLR0912', 'PLR0913', 'PLR0915', 'PLR0917']
 
 # https://beta.ruff.rs/docs/rules/
 select = [

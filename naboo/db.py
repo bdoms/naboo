@@ -498,6 +498,8 @@ class Query:
         self.args = []
         self.logic_level = 0
         self.alias = alias
+        self.group_by_cols = []
+        self.group_by_sql = ''
         self.order_by_sql = ''
         self.limit_sql = ''
         self.offset_sql = ''
@@ -526,18 +528,7 @@ class Query:
     @property
     def sql(self):
         # apply all the ending logic as needed
-        sql = self._sql
-
-        if self.order_by_sql:
-            sql += self.order_by_sql
-
-        if self.limit_sql:
-            sql += self.limit_sql
-
-        if self.offset_sql:
-            sql += self.offset_sql
-
-        return sql
+        return self._sql + self.group_by_sql + self.order_by_sql + self.limit_sql + self.offset_sql
 
     def _check_col(self, name):
         if name not in self.model_class.fields:
@@ -711,6 +702,27 @@ class Query:
 
         return self
 
+    # FUTURE: support multiple column names being added at once
+    def group_by(self, col_name):
+        col_name = self._check_col(col_name)
+
+        col_sql = f'"{col_name}"'
+
+        if col_sql in self.group_by_cols:
+            raise ValueError(f'Column has already been added to group by: {col_name}')
+
+        self.group_by_cols.append(col_sql)
+
+        if ' GROUP BY ' in self.group_by_sql:
+            self.group_by_sql += ', '
+        else:
+            self.group_by_sql += ' GROUP BY '
+
+        self.group_by_sql += col_sql
+
+        return self
+
+    # FUTURE: support multiple column names being added at once
     def order_by(self, col_name, direction='ASC'):
 
         col_name = self._check_col(col_name)
@@ -726,9 +738,6 @@ class Query:
         self.order_by_sql += f' "{col_name}" {direction}'
 
         return self
-
-    # FUTURE: do we need to support this?
-    # def group_by(self, col_name):
 
     def limit(self, n: int):
 
@@ -775,12 +784,17 @@ class Query:
         if self.logic_level > 0:
             raise RuntimeError('Tried to query without closing all logic groups')
 
-        # NOTE that we purposefully use the _sql here that doesn't have endings applied
-        # because those can mess with the count
-        # NOTE the 1 is important here so we don't replace the select on subqueries if they exist
-        sql = self._sql.replace('SELECT * FROM', 'SELECT COUNT(*) FROM', 1)
+        select_count = ''
+        if self.group_by_cols:
+            select_count = ', '.join(self.group_by_cols) + ', '
 
-        return await self.conn.fetchval(sql, *self.args)
+        select_count += 'COUNT(*)'
+
+        # NOTE the 1 is important here so we don't replace the select on subqueries if they exist
+        sql = self.sql.replace('SELECT * FROM', f'SELECT {select_count} FROM', 1)
+
+        # the "or 0" is because this returns None if there are no results, but we want consistent return types
+        return await self.conn.fetchval(sql, *self.args) or 0
 
     async def first(self):
 

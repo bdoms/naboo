@@ -535,11 +535,35 @@ class TestQuery:
         rows = await q.all()
         assert len(rows) == 0
 
+        first = await q.first()
+        assert first is None
+
+        # order by will cause an error with count because the field isn't used in an aggregate, so remove for this test
+        q.order_by_sql = ''
         count = await q.count()
         assert count == 0
 
-        first = await q.first()
-        assert first is None
+    async def test_group_by(self, conn):
+        q = Query(conn, QueryTest)
+
+        with pytest.raises(ValueError):
+            q.group_by('doesntexist')
+
+        q.group_by('name')
+
+        assert q.group_by_sql == ' GROUP BY "name"'
+
+        # can apply multiple groupings
+        q.group_by('id')
+
+        assert q.group_by_sql == ' GROUP BY "name", "id"'
+        assert q.group_by_sql in q.sql
+
+        rows = await q.all()
+        assert len(rows) == 0
+
+        count = await q.count()
+        assert count == 0
 
     async def test_in_array(self, conn):
         # test with lists, sets, and tuples
